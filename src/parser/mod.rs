@@ -13,7 +13,7 @@ const TOKEN_ESCAPE: char = '\\';
 pub type ParseResult<T> = Result<T, String>;
 
 #[derive(Debug)]
-pub struct Query { // FIXME: Rename
+pub struct Query {
     tokens: Vec<Token>,
 }
 
