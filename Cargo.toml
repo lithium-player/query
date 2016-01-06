@@ -1,4 +1,4 @@
 [package]
 authors = ["David Barnett <david@barnett.net.nz>"]
-name = "lithium-query"
+name = "lithium_query"
 version = "0.1.0"
