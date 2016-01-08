@@ -12,7 +12,30 @@ const TOKEN_FUNC_PARAM_SEP: char = ',';
 const TOKEN_ESCAPE: char = '\\';
 
 // TODO: Proper error type instead of String
-pub type ParseResult<T> = Result<T, String>;
+pub type ParseResult<T> = Result<T, ParseError>;
+
+/// Errors found in parsing query
+#[derive(Debug)]
+pub enum ParseError {
+    /// Unknown escape sequence.
+    /// String contains the sequece
+    UnknownEscape(String),
+
+    /// Escape squence at end of query
+    EscapeAtEndOfQuery,
+
+    /// Variable is missing closing character 
+    VariableMissingClosing,
+
+    /// Function is missing start of parameters
+    FuncMissingParameter,
+
+    /// Function parameters is missing closing character
+    FuncParameterNotClosed,
+
+    /// End of Query
+    EndOfQuery,
+}
 
 impl Query {
     pub fn parse(src: String) -> ParseResult<Query> {
@@ -21,11 +44,13 @@ impl Query {
         loop {
             let token = parse_expr(&mut iter);
             tokens.push(match token { 
-                Ok(t) => match t {
-                    Token::None => break,
-                    _ => t,
-                },
-                Err(e) => return Err(e),
+                Ok(t) => t,
+                Err(e) => {
+                    match e {
+                        ParseError::EndOfQuery => break,
+                        _ => return Err(e),
+                    }
+                }
             });
         }
         Ok(Query { tokens: tokens })
@@ -41,7 +66,7 @@ fn parse_expr(iter: &mut Chars) -> ParseResult<Token> {
                 _ => return parse_text(iter),
             }
         }
-        None => return Ok(Token::None),
+        None => return Err(ParseError::EndOfQuery),
     }
 }
 
@@ -88,10 +113,10 @@ fn parse_escape(iter: &mut Chars) -> ParseResult<char> {
             TOKEN_VAR_START => TOKEN_VAR_START,
             TOKEN_FUNC_NAME_START => TOKEN_FUNC_NAME_START,
             TOKEN_FUNC_PARAM_SEP => TOKEN_FUNC_PARAM_SEP,
-            _ => return Err(format!("Unknown escape \\{}", next)),
+            _ => return Err(ParseError::UnknownEscape(format!("\\{}", next))),
         })
     } else {
-        Err(format!("Escape at end of line"))
+        Err(ParseError::EscapeAtEndOfQuery)
     }
 }
 
@@ -105,7 +130,7 @@ fn parse_variable(iter: &mut Chars) -> ParseResult<Token> {
             _ => name.push(c),
         };
     }
-    Err(format!("Missing ending {}", TOKEN_VAR_END))
+    Err(ParseError::VariableMissingClosing)
 }
 
 fn parse_function(iter: &mut Chars) -> ParseResult<Token> {
@@ -121,7 +146,7 @@ fn parse_function(iter: &mut Chars) -> ParseResult<Token> {
                 _ => name.push(c),
             };
         } else {
-            return Err(format!("Function does not have parameters"));
+            return Err(ParseError::FuncMissingParameter);
         }
     }
 
@@ -145,12 +170,13 @@ fn parse_function(iter: &mut Chars) -> ParseResult<Token> {
         }
     }
 
-    Err(format!("Function parameters do not close got: {} {:?}", name, args))
+    Err(ParseError::FuncParameterNotClosed)
 }
 
 #[cfg(test)]
 mod tests {
     use ::Token::*;
+    use ::ParseError;
     use Query;
 
     macro_rules! parse_test {
@@ -171,11 +197,18 @@ mod tests {
     }
 
     macro_rules! parse_fail_test {
-        ($name: ident, $input: expr) => {
+        ($name: ident, $input: expr, $expt: pat) => {
             #[test]
             fn $name() {
                 let out = Query::parse($input.to_owned());
                 assert!(out.is_err());
+                match out {
+                    Ok(_) => unreachable!(),
+                    Err(e) => match e {
+                        $expt => (),
+                        _ => unreachable!(),
+                    }
+                }
             }
         };
     }
@@ -205,9 +238,10 @@ mod tests {
     parse_test!(parse_text_var_func, "Hello %name% $f()",
                 Text("Hello ".to_owned()) , Variable("name".to_owned()), Text(" ".to_owned()), Function("f".to_owned(), vec![]));
 
-    // parse fails TODO: make sure correct error messages are provided
-    parse_fail_test!(parse_fail_miss_matched_variable, "%hello");
-    parse_fail_test!(parse_fail_unknown_escape,        "\\?");
-    parse_fail_test!(parse_fail_end_with_escape,       "\\");
+    parse_fail_test!(parse_fail_miss_matched_variable, "%hello", ParseError::VariableMissingClosing);
+    parse_fail_test!(parse_fail_unknown_escape, "\\?", ParseError::UnknownEscape(_));
+    parse_fail_test!(parse_fail_end_with_escape, "\\", ParseError::EscapeAtEndOfQuery);
+    parse_fail_test!(parse_fail_func_no_para, "$func", ParseError::FuncMissingParameter);
+    parse_fail_test!(parse_fail_func_no_close_para, "$func(", ParseError::FuncParameterNotClosed);
 
 }

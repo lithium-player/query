@@ -8,45 +8,73 @@ pub struct QueryReturn {
     condition: Option<bool>,
 }
 
-pub trait Queryable { 
+pub trait Queryable {
     fn query(&self, key: &str) -> Option<String>;
 }
 
 pub trait Context {
-    fn get_func(&self, name: &str) -> Option<&Box<(Fn(&Vec<Token>) -> QueryReturn)>>;
+    fn get_func(&self, name: &str) -> Option<&Box<EvalFunc>>;
 }
 
+/// Errors found in evaluating query
+#[derive(Debug)]
+pub enum EvalError {
+    /// Function used is not in the current context
+    /// String passed is the function name
+    FunctionNotFound(String),
+}
+
+pub type EvalResult<T> = Result<T, EvalError>;
+pub type EvalFunc = (Fn(&Vec<Token>) -> EvalResult<QueryReturn>);
+
 impl Query {
-    pub fn run(&self, queryable: &Queryable, context: &Context) -> Result<String, ()> {
+    /// Evaluate the query with a queryable object to be based off and a
+    /// context
+    pub fn eval(&self, queryable: &Queryable, context: &Context) -> EvalResult<String> {
         let mut output = String::new();
         for token in &self.tokens {
-            let result = eval_token(token, queryable, context);
+            let result = match eval_token(token, queryable, context) {
+                Ok(txt) => txt,
+                Err(err) => return Err(err),
+            };
             output.push_str(&result.text);
         }
         Ok(output)
     }
 }
 
-fn eval_token(token: &Token, queryable: &Queryable, context: &Context) -> QueryReturn {
+fn eval_token(token: &Token, queryable: &Queryable, context: &Context) -> EvalResult<QueryReturn> {
     match token {
-        &Token::Text(ref t) => QueryReturn{ text: t.to_owned(), condition: None },
+        &Token::Text(ref t) => {
+            Ok(QueryReturn {
+                text: t.to_owned(),
+                condition: None,
+            })
+        }
         &Token::Variable(ref v) => {
             match queryable.query(v) {
-                Some(r) => QueryReturn{ text: r, condition: Some(true) },
-                None => QueryReturn{ text: String::new(), condition: Some(false) },
-            }
-        },
-        &Token::Function(ref f, ref arg) => {
-            match context.get_func(f) {
-                Some(func) => {
-                    func(arg)
-                },
+                Some(r) => {
+                    Ok(QueryReturn {
+                        text: r,
+                        condition: Some(true),
+                    })
+                }
                 None => {
-                    panic!();
+                    Ok(QueryReturn {
+                        text: String::new(),
+                        condition: Some(false),
+                    })
                 }
             }
         }
-        _ => panic!(),
+        &Token::Function(ref f, ref arg) => {
+            match context.get_func(f) {
+                Some(func) => func(arg),
+                None => {
+                    return Err(EvalError::FunctionNotFound(f.to_owned()));
+                }
+            }
+        }
     }
 }
 
@@ -59,8 +87,8 @@ impl Queryable for HashMap<String, String> {
     }
 }
 
-impl Context for HashMap<String, Box<(Fn(&Vec<Token>) -> QueryReturn)>> {
-    fn get_func(&self, name: &str) -> Option<&Box<(Fn(&Vec<Token>) -> QueryReturn)>> {
+impl Context for HashMap<String, Box<(Fn(&Vec<Token>) -> EvalResult<QueryReturn>)>> {
+    fn get_func(&self, name: &str) -> Option<&Box<(Fn(&Vec<Token>) -> EvalResult<QueryReturn>)>> {
         self.get(name)
     }
 }
@@ -77,11 +105,13 @@ mod tests {
 
         let mut map = HashMap::new();
         map.insert("name".to_owned(), "Dave".to_owned());
-        
-        let mut func = HashMap::<String, Box<(Fn(&Vec<Token>) -> QueryReturn)>>::new();
 
-        let result = Query::parse("Hello %name%".to_owned()).unwrap()
-                     .run(&map, &func).unwrap();
+        let mut func = HashMap::<String, Box<(Fn(&Vec<Token>) -> EvalResult<QueryReturn>)>>::new();
+
+        let result = Query::parse("Hello %name%".to_owned())
+                         .unwrap()
+                         .eval(&map, &func)
+                         .unwrap();
 
         assert_eq!("Hello Dave".to_owned(), result);
     }
