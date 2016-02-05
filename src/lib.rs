@@ -3,7 +3,7 @@ mod context;
 
 pub use parser::{ParseError, ParseResult};
 pub use context::{Context, Queryable};
-pub use context::{QueryReturn};
+pub use context::QueryReturn;
 pub use context::{EvalResult, EvalError, EvalFunc};
 
 

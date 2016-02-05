@@ -176,7 +176,7 @@ fn parse_function(iter: &mut Chars) -> ParseResult<Token> {
 #[cfg(test)]
 mod tests {
     use ::Token::*;
-    use ::ParseError;
+    use ParseError;
     use Query;
 
     macro_rules! parse_test {
@@ -226,22 +226,37 @@ mod tests {
     parse_test!(parse_func, "$func()", Function("func".to_owned(), vec![]));
     parse_test!(parse_func_param,
                 "$func(expr, expr)",
-                Function("func".to_owned(), vec![Text("expr".to_owned()), Text(" expr".to_owned())]));
+                Function("func".to_owned(),
+                         vec![Text("expr".to_owned()), Text(" expr".to_owned())]));
 
     parse_test!(parse_func_rec_params,
                 "$i($f())",
                 Function("i".to_owned(), vec![Function("f".to_owned(), vec![])]));
 
     // Multi token tests
-    parse_test!(parse_text_and_variable, "Hello %name%",
-                Text("Hello ".to_owned()) , Variable("name".to_owned()));
-    parse_test!(parse_text_var_func, "Hello %name% $f()",
-                Text("Hello ".to_owned()) , Variable("name".to_owned()), Text(" ".to_owned()), Function("f".to_owned(), vec![]));
+    parse_test!(parse_text_and_variable,
+                "Hello %name%",
+                Text("Hello ".to_owned()),
+                Variable("name".to_owned()));
+    parse_test!(parse_text_var_func,
+                "Hello %name% $f()",
+                Text("Hello ".to_owned()),
+                Variable("name".to_owned()),
+                Text(" ".to_owned()),
+                Function("f".to_owned(), vec![]));
 
-    parse_fail_test!(parse_fail_miss_matched_variable, "%hello", ParseError::VariableMissingClosing);
+    parse_fail_test!(parse_fail_miss_matched_variable,
+                     "%hello",
+                     ParseError::VariableMissingClosing);
     parse_fail_test!(parse_fail_unknown_escape, "\\?", ParseError::UnknownEscape(_));
-    parse_fail_test!(parse_fail_end_with_escape, "\\", ParseError::EscapeAtEndOfQuery);
-    parse_fail_test!(parse_fail_func_no_para, "$func", ParseError::FuncMissingParameter);
-    parse_fail_test!(parse_fail_func_no_close_para, "$func(", ParseError::FuncParameterNotClosed);
+    parse_fail_test!(parse_fail_end_with_escape,
+                     "\\",
+                     ParseError::EscapeAtEndOfQuery);
+    parse_fail_test!(parse_fail_func_no_para,
+                     "$func",
+                     ParseError::FuncMissingParameter);
+    parse_fail_test!(parse_fail_func_no_close_para,
+                     "$func(",
+                     ParseError::FuncParameterNotClosed);
 
 }

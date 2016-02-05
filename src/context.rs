@@ -84,7 +84,7 @@ fn eval_token(token: &Token, queryable: &Queryable, context: &Context) -> EvalRe
     }
 }
 
-// Example Implementation for Queryable and Context 
+// Example Implementation for Queryable and Context
 
 impl Queryable for HashMap<String, String> {
     fn query(&self, query: &str) -> Option<String> {
