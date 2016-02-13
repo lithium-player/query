@@ -3,6 +3,14 @@ authors = ["David Barnett <david@barnett.net.nz>"]
 name = "lithium"
 version = "0.1.0"
 
+[[bin]]
+name = "lirename"
+path = "src/rename/main.rs"
+
+[dependencies]
+clap = "^2.0.0"
+walkdir = "0.1.5"
+
 [lib]
 name = "liquery"
 path = "src/query/lib.rs"
