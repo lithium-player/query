@@ -1,4 +1,8 @@
 [package]
 authors = ["David Barnett <david@barnett.net.nz>"]
-name = "lithium_query"
+name = "lithium"
 version = "0.1.0"
+
+[lib]
+name = "liquery"
+path = "src/query/lib.rs"
