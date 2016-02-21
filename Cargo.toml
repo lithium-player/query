@@ -2,6 +2,7 @@
 authors = ["David Barnett <david@barnett.net.nz>"]
 version = "0.1.0"
 name = "liquery"
+license = "MIT OR Apache-2.0"
 
 [lib]
 path = "src/lib.rs"
