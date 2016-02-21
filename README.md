@@ -1,6 +1,7 @@
 # Query
 
 [![Build Status](https://travis-ci.org/lithium-player/query.svg?branch=master)](https://travis-ci.org/lithium-player/query)
+[![Coverage Status](https://coveralls.io/repos/github/lithium-player/query/badge.svg?branch=master)](https://coveralls.io/github/lithium-player/query?branch=master)
 
 A rust library for parsing & executing foobar2000-like formatting syntax.
 

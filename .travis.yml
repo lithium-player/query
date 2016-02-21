@@ -38,3 +38,4 @@ script:
 
 after_success: 
   - curl https://raw.githubusercontent.com/zyphrus/travis-doc-upload/master/travis-doc-upload.sh | sh
+  - travis-cargo --only stable coveralls --no-sudo --verify
