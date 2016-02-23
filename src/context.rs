@@ -120,7 +120,6 @@ impl Context for BTreeMap<String, Box<EvalFunc>> {
 mod tests {
     use super::*;
     use Query;
-    use Token;
     use std::collections::HashMap;
 
     #[test]
@@ -131,12 +130,27 @@ mod tests {
 
         let func = HashMap::<String, Box<EvalFunc>>::new();
 
-        let result = Query::parse("Hello %name%".to_owned())
+        let result = Query::parse("Hello %name%!".to_owned())
                          .unwrap()
                          .eval(&map, &func)
                          .unwrap();
 
-        assert_eq!("Hello Dave".to_owned(), result);
+        assert_eq!("Hello Dave!".to_owned(), result);
+    }
+
+    #[test]
+    fn test_run_unknown_variable() {
+
+        let map = HashMap::new();
+
+        let func = HashMap::<String, Box<EvalFunc>>::new();
+
+        let result = Query::parse("Hello %name%!".to_owned())
+                         .unwrap()
+                         .eval(&map, &func)
+                         .unwrap();
+
+        assert_eq!("Hello !".to_owned(), result);
     }
 
     #[test]
@@ -159,5 +173,24 @@ mod tests {
                          .unwrap();
 
         assert_eq!("Hello hi!".to_owned(), result);
+    }
+
+    #[test]
+    fn test_run_func_does_not_exist() {
+
+        let map = HashMap::new();
+
+        let func = HashMap::<String, Box<EvalFunc>>::new();
+
+        match Query::parse("Hello $hi()".to_owned())
+                  .unwrap()
+                  .eval(&map, &func) {
+            Ok(_) => unreachable!(),
+            Err(e) => {
+                match e {
+                    EvalError::FunctionNotFound(_) => (),
+                }
+            }
+        }
     }
 }
