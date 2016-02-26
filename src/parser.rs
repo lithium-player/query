@@ -231,6 +231,8 @@ mod tests {
     parse_test!(parse_text, "hello", Text("hello".to_owned()));
     parse_test!(parse_escape, "\\t", Text("\t".to_owned()));
     parse_test!(parse_func, "$func()", Function("func".to_owned(), vec![]));
+
+    // function tests
     parse_test!(parse_func_param,
                 "$func(expr, expr)",
                 Function("func".to_owned(),
@@ -262,6 +264,7 @@ mod tests {
                 Text(" ".to_owned()),
                 Function("f".to_owned(), vec![]));
 
+    // parse failures
     parse_fail_test!(parse_fail_miss_matched_variable,
                      "%hello",
                      ParseError::VariableMissingClosing);
@@ -277,4 +280,14 @@ mod tests {
                      "$func(",
                      ParseError::FuncParameterNotClosed);
 
+    // errors in scope of functions
+    parse_fail_test!(parse_fail_miss_matched_variable_in_func,
+                     "$test(%hello)",
+                     ParseError::VariableMissingClosing);
+    parse_fail_test!(parse_fail_unknown_escape_in_func,
+                     "$test(\\?)", ParseError::UnknownEscape(_));
+
+    parse_fail_test!(parse_fail_func_no_para_in_func,
+                     "$test($func)",
+                     ParseError::FuncMissingParameter);
 }
