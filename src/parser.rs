@@ -50,7 +50,18 @@ impl Query {
 fn parse_scope(iter: &mut Chars) -> ParseResult<Token> {
     let mut tokens = Vec::new();
     loop {
-        let token = parse_expr(iter);
+        let token = match iter.clone().peekable().peek() {
+            Some(c) => {
+                match *c {
+                    TOKEN_VAR_START => parse_variable(iter),
+                    TOKEN_FUNC_NAME_START => parse_function(iter),
+                    TOKEN_FUNC_PARAM_END | TOKEN_FUNC_PARAM_SEP => break,
+                    _ => parse_text(iter),
+                }
+            }
+            None => Err(ParseError::EndOfQuery),
+        };
+
         tokens.push(match token { 
             Ok(t) => t,
             Err(e) => {
@@ -62,19 +73,6 @@ fn parse_scope(iter: &mut Chars) -> ParseResult<Token> {
         });
     }
     Ok(Token::Scope(tokens))
-}
-
-fn parse_expr(iter: &mut Chars) -> ParseResult<Token> {
-    match iter.clone().peekable().peek() {
-        Some(c) => {
-            return match *c {
-                TOKEN_VAR_START => return parse_variable(iter),
-                TOKEN_FUNC_NAME_START => return parse_function(iter),
-                _ => return parse_text(iter),
-            }
-        }
-        None => return Err(ParseError::EndOfQuery),
-    }
 }
 
 fn parse_text(iter: &mut Chars) -> ParseResult<Token> {
@@ -169,7 +167,7 @@ fn parse_function(iter: &mut Chars) -> ParseResult<Token> {
                 continue;
             }
             _ => {
-                args.push(match parse_expr(iter) {
+                args.push(match parse_scope(iter) {
                     Ok(t) => t,
                     Err(e) => return Err(e),
                 })
@@ -194,6 +192,7 @@ mod tests {
                 assert_eq!(out.tokens, Scope(vec![$out]));
             }
         };
+
         ($name: ident, $input: expr, $out: expr, $($more: expr),*) => {
             #[test]
             fn $name() {
@@ -220,6 +219,7 @@ mod tests {
         };
     }
 
+
     #[test]
     fn parse_empty() {
         let out = Query::parse("".to_owned()).unwrap();
@@ -234,17 +234,27 @@ mod tests {
     parse_test!(parse_func_param,
                 "$func(expr, expr)",
                 Function("func".to_owned(),
-                         vec![Text("expr".to_owned()), Text(" expr".to_owned())]));
+                         vec![Scope(vec![Text("expr".to_owned())]),
+                              Scope(vec![Text(" expr".to_owned())])]));
+
+    parse_test!(parse_func_param_var,
+                "$func(expr, expr, %name%)",
+                Function("func".to_owned(),
+                         vec![Scope(vec![Text("expr".to_owned())]),
+                              Scope(vec![Text(" expr".to_owned())]),
+                              Scope(vec![Text(" ".to_owned()), Variable("name".to_owned())])]));
 
     parse_test!(parse_func_rec_params,
                 "$i($f())",
-                Function("i".to_owned(), vec![Function("f".to_owned(), vec![])]));
+                Function("i".to_owned(),
+                         vec![Scope(vec![Function("f".to_owned(), vec![])])]));
 
     // Multi token tests
     parse_test!(parse_text_and_variable,
                 "Hello %name%",
                 Text("Hello ".to_owned()),
                 Variable("name".to_owned()));
+
     parse_test!(parse_text_var_func,
                 "Hello %name% $f()",
                 Text("Hello ".to_owned()),
