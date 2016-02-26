@@ -9,7 +9,9 @@ pub use context::{EvalResult, EvalError, EvalFunc};
 
 #[derive(Debug)]
 pub struct Query {
-    tokens: Vec<Token>,
+
+    // root token will be a scope
+    tokens: Token,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -22,4 +24,7 @@ enum Token {
 
     /// A named function with: Name, Expressions
     Function(String, Vec<Token>),
+
+    /// A level of scope
+    Scope(Vec<Token>),
 }

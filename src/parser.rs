@@ -39,22 +39,29 @@ pub enum ParseError {
 
 impl Query {
     pub fn parse(src: String) -> ParseResult<Query> {
-        let mut tokens = Vec::new();
         let mut iter = src.chars();
-        loop {
-            let token = parse_expr(&mut iter);
-            tokens.push(match token { 
-                Ok(t) => t,
-                Err(e) => {
-                    match e {
-                        ParseError::EndOfQuery => break,
-                        _ => return Err(e),
-                    }
-                }
-            });
+        match parse_scope(&mut iter) {
+            Ok(t) => Ok(Query { tokens: t }),
+            Err(e) => return Err(e),
         }
-        Ok(Query { tokens: tokens })
     }
+}
+
+fn parse_scope(iter: &mut Chars) -> ParseResult<Token> {
+    let mut tokens = Vec::new();
+    loop {
+        let token = parse_expr(iter);
+        tokens.push(match token { 
+            Ok(t) => t,
+            Err(e) => {
+                match e {
+                    ParseError::EndOfQuery => break,
+                    _ => return Err(e),
+                }
+            }
+        });
+    }
+    Ok(Token::Scope(tokens))
 }
 
 fn parse_expr(iter: &mut Chars) -> ParseResult<Token> {
@@ -184,14 +191,14 @@ mod tests {
             #[test]
             fn $name() {
                 let out = Query::parse($input.to_owned()).unwrap();
-                assert_eq!(out.tokens, vec![$out]);
+                assert_eq!(out.tokens, Scope(vec![$out]));
             }
         };
         ($name: ident, $input: expr, $out: expr, $($more: expr),*) => {
             #[test]
             fn $name() {
                 let out = Query::parse($input.to_owned()).unwrap();
-                assert_eq!(out.tokens, vec![$out $(, $more)*]);
+                assert_eq!(out.tokens, Scope(vec![$out $(, $more)*]));
             }
         };
     }
@@ -216,7 +223,7 @@ mod tests {
     #[test]
     fn parse_empty() {
         let out = Query::parse("".to_owned()).unwrap();
-        assert_eq!(out.tokens, vec![]);
+        assert_eq!(out.tokens, Scope(vec![]));
     }
 
     // Single tokens tests
@@ -249,6 +256,7 @@ mod tests {
                      "%hello",
                      ParseError::VariableMissingClosing);
     parse_fail_test!(parse_fail_unknown_escape, "\\?", ParseError::UnknownEscape(_));
+
     parse_fail_test!(parse_fail_end_with_escape,
                      "\\",
                      ParseError::EscapeAtEndOfQuery);

@@ -37,20 +37,33 @@ impl Query {
     /// Evaluate the query with a queryable object to be based off and a
     /// context
     pub fn eval(&self, queryable: &Queryable, context: &Context) -> EvalResult<String> {
-        let mut output = String::new();
-        for token in &self.tokens {
-            let result = match eval_token(token, queryable, context) {
-                Ok(txt) => txt,
-                Err(err) => return Err(err),
-            };
-            output.push_str(&result.text);
+        match eval_token(&self.tokens, queryable, context) {
+            Ok(res) => Ok(res.text),
+            Err(err) => return Err(err),
         }
-        Ok(output)
     }
 }
 
 fn eval_token(token: &Token, queryable: &Queryable, context: &Context) -> EvalResult<QueryReturn> {
     match token {
+        &Token::Scope(ref tokens) => {
+            let mut result = false;
+            let mut text = String::new();
+            for token in tokens {
+                match eval_token(token, queryable, context) {
+                    Ok(res) => {
+                        // TODO: should result of scope be an AND or OR of all results
+                        result = result || res.condition.unwrap_or(false);
+                        text.push_str(&res.text);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok(QueryReturn {
+                text: text,
+                condition: Some(result),
+            })
+        }
         &Token::Text(ref t) => {
             Ok(QueryReturn {
                 text: t.to_owned(),
