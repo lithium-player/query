@@ -17,6 +17,8 @@ pub trait Queryable {
 /// Trait describing an object that contains a dictionary of functions
 pub trait Context {
     fn get_func(&self, name: &str) -> Option<&Box<EvalFunc>>;
+
+    fn unescape(&self, sequence: &str) -> Option<String>;
 }
 
 /// Errors found while evaluating query
@@ -25,6 +27,9 @@ pub enum EvalError {
     /// Function used is not in the current context
     /// String passed is the function name
     FunctionNotFound(String),
+
+    /// Unknown escape sequence
+    UnknownEscape(String),
 }
 
 pub type EvalResult<T> = Result<T, EvalError>;
@@ -90,7 +95,18 @@ fn eval_token(token: &Token, queryable: &Queryable, context: &Context) -> EvalRe
             match context.get_func(f) {
                 Some(func) => func(arg),
                 None => {
-                    return Err(EvalError::FunctionNotFound(f.to_owned()));
+                    Err(EvalError::FunctionNotFound(f.to_owned()))
+                }
+            }
+        }
+        &Token::Escaped(ref t) => {
+            match context.unescape(t) {
+                Some(unescaped) => Ok(QueryReturn {
+                    text: unescaped,
+                    condition: None,
+                }),
+                None => {
+                    Err(EvalError::UnknownEscape(t.to_owned()))
                 }
             }
         }
@@ -112,6 +128,12 @@ impl Context for HashMap<String, Box<EvalFunc>> {
     fn get_func(&self, name: &str) -> Option<&Box<EvalFunc>> {
         self.get(name)
     }
+    fn unescape(&self, sequence: &str) -> Option<String> { 
+        match sequence {
+            "\\" => Some("\\".to_owned()),
+            _ => None,
+        }
+    }
 }
 
 impl Queryable for BTreeMap<String, String> {
@@ -126,6 +148,12 @@ impl Queryable for BTreeMap<String, String> {
 impl Context for BTreeMap<String, Box<EvalFunc>> {
     fn get_func(&self, name: &str) -> Option<&Box<EvalFunc>> {
         self.get(name)
+    }
+    fn unescape(&self, sequence: &str) -> Option<String> { 
+        match sequence {
+            "\\" => Some("\\".to_owned()),
+            _ => None,
+        }
     }
 }
 
@@ -144,9 +172,9 @@ mod tests {
         let func = HashMap::<String, Box<EvalFunc>>::new();
 
         let result = Query::parse("Hello %name%!".to_owned())
-                         .unwrap()
-                         .eval(&map, &func)
-                         .unwrap();
+            .unwrap()
+            .eval(&map, &func)
+            .unwrap();
 
         assert_eq!("Hello Dave!".to_owned(), result);
     }
@@ -159,9 +187,9 @@ mod tests {
         let func = HashMap::<String, Box<EvalFunc>>::new();
 
         let result = Query::parse("Hello %name%!".to_owned())
-                         .unwrap()
-                         .eval(&map, &func)
-                         .unwrap();
+            .unwrap()
+            .eval(&map, &func)
+            .unwrap();
 
         assert_eq!("Hello !".to_owned(), result);
     }
@@ -173,17 +201,17 @@ mod tests {
 
         let mut func = HashMap::<String, Box<EvalFunc>>::new();
         func.insert("hi".to_owned(),
-                    Box::new(|_| {
-                        Ok(QueryReturn {
-                            text: "hi!".to_owned(),
-                            condition: None,
-                        })
-                    }));
+        Box::new(|_| {
+            Ok(QueryReturn {
+                text: "hi!".to_owned(),
+                condition: None,
+            })
+        }));
 
         let result = Query::parse("Hello $hi()".to_owned())
-                         .unwrap()
-                         .eval(&map, &func)
-                         .unwrap();
+            .unwrap()
+            .eval(&map, &func)
+            .unwrap();
 
         assert_eq!("Hello hi!".to_owned(), result);
     }
@@ -196,14 +224,50 @@ mod tests {
         let func = HashMap::<String, Box<EvalFunc>>::new();
 
         match Query::parse("Hello $hi()".to_owned())
-                  .unwrap()
-                  .eval(&map, &func) {
-            Ok(_) => unreachable!(),
-            Err(e) => {
-                match e {
-                    EvalError::FunctionNotFound(_) => (),
+            .unwrap()
+            .eval(&map, &func) {
+                Ok(_) => unreachable!(),
+                Err(e) => {
+                    match e {
+                        EvalError::FunctionNotFound(_) => (),
+                        _ => unreachable!(),
+                    }
                 }
             }
-        }
+    }
+
+    #[test]
+    fn test_run_escape_does_not_exist() {
+
+        let map = HashMap::new();
+
+        let func = HashMap::<String, Box<EvalFunc>>::new();
+
+        match Query::parse("\\?".to_owned())
+            .unwrap()
+            .eval(&map, &func) {
+                Ok(_) => unreachable!(),
+                Err(e) => {
+                    match e {
+                        EvalError::UnknownEscape(_) => (),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+    }
+
+    #[test]
+    fn test_run_func_escape() {
+
+        let map = HashMap::new();
+
+        let func = HashMap::<String, Box<EvalFunc>>::new();
+
+        let result = Query::parse("\\\\".to_owned())
+            .unwrap()
+            .eval(&map, &func)
+            .unwrap();
+
+        assert_eq!("\\".to_owned(), result);
     }
 }

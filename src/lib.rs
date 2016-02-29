@@ -25,6 +25,9 @@ enum Token {
     /// A named function with: Name, Expressions
     Function(String, Vec<Token>),
 
+    /// An escaped sequence
+    Escaped(String),
+
     /// A level of scope
     Scope(Vec<Token>),
 }

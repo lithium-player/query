@@ -17,10 +17,6 @@ pub type ParseResult<T> = Result<T, ParseError>;
 /// Errors found in parsing query
 #[derive(Debug)]
 pub enum ParseError {
-    /// Unknown escape sequence.
-    /// String contains the sequece
-    UnknownEscape(String),
-
     /// Escape squence at end of query
     EscapeAtEndOfQuery,
 
@@ -55,6 +51,7 @@ fn parse_scope(iter: &mut Chars) -> ParseResult<Token> {
                 match *c {
                     TOKEN_VAR_START => parse_variable(iter),
                     TOKEN_FUNC_NAME_START => parse_function(iter),
+                    TOKEN_ESCAPE => parse_escape(iter),
                     TOKEN_FUNC_PARAM_END | TOKEN_FUNC_PARAM_SEP => break,
                     _ => parse_text(iter),
                 }
@@ -87,20 +84,13 @@ fn parse_text(iter: &mut Chars) -> ParseResult<Token> {
                 TOKEN_FUNC_NAME_START => break, 
                 TOKEN_FUNC_PARAM_START => break, 
                 TOKEN_FUNC_PARAM_END => break,
+                TOKEN_ESCAPE => break,
                 _ => (),
             }
         }
 
         if let Some(next) = iter.next() {
-            match next {
-                TOKEN_ESCAPE => {
-                    text.push(match parse_escape(iter) {
-                        Ok(esc) => esc,
-                        Err(err) => return Err(err),
-                    })
-                }
-                _ => text.push(next),
-            }
+            text.push(next);
         } else {
             // Made it to the end of the string
             break;
@@ -109,17 +99,19 @@ fn parse_text(iter: &mut Chars) -> ParseResult<Token> {
     Ok(Token::Text(text))
 }
 
-fn parse_escape(iter: &mut Chars) -> ParseResult<char> {
+fn parse_escape(iter: &mut Chars) -> ParseResult<Token> {
+    let _ = iter.next(); // ignore TOKEN_ESCAPE
     if let Some(next) = iter.next() {
-        Ok(match next {
-            'n' => '\n',
-            't' => '\t',
-            TOKEN_ESCAPE => TOKEN_ESCAPE,
-            TOKEN_VAR_START => TOKEN_VAR_START,
-            TOKEN_FUNC_NAME_START => TOKEN_FUNC_NAME_START,
-            TOKEN_FUNC_PARAM_SEP => TOKEN_FUNC_PARAM_SEP,
-            _ => return Err(ParseError::UnknownEscape(format!("\\{}", next))),
-        })
+        Ok(Token::Escaped(format!("{}", next)))
+            // match next {
+            //     'n' => '\n',
+            //     't' => '\t',
+            //     TOKEN_ESCAPE => TOKEN_ESCAPE,
+            //     TOKEN_VAR_START => TOKEN_VAR_START,
+            //     TOKEN_FUNC_NAME_START => TOKEN_FUNC_NAME_START,
+            //     TOKEN_FUNC_PARAM_SEP => TOKEN_FUNC_PARAM_SEP,
+            //     _ => return Err(ParseError::UnknownEscape(format!("\\{}", next))),
+            // }
     } else {
         Err(ParseError::EscapeAtEndOfQuery)
     }
@@ -229,27 +221,27 @@ mod tests {
     // Single tokens tests
     parse_test!(parse_variable, "%hello%", Variable("hello".to_owned()));
     parse_test!(parse_text, "hello", Text("hello".to_owned()));
-    parse_test!(parse_escape, "\\t", Text("\t".to_owned()));
+    parse_test!(parse_escape, "\\t", Escaped("t".to_owned()));
     parse_test!(parse_func, "$func()", Function("func".to_owned(), vec![]));
 
     // function tests
     parse_test!(parse_func_param,
                 "$func(expr, expr)",
                 Function("func".to_owned(),
-                         vec![Scope(vec![Text("expr".to_owned())]),
-                              Scope(vec![Text(" expr".to_owned())])]));
+                vec![Scope(vec![Text("expr".to_owned())]),
+                Scope(vec![Text(" expr".to_owned())])]));
 
     parse_test!(parse_func_param_var,
                 "$func(expr, expr, %name%)",
                 Function("func".to_owned(),
-                         vec![Scope(vec![Text("expr".to_owned())]),
-                              Scope(vec![Text(" expr".to_owned())]),
-                              Scope(vec![Text(" ".to_owned()), Variable("name".to_owned())])]));
+                vec![Scope(vec![Text("expr".to_owned())]),
+                Scope(vec![Text(" expr".to_owned())]),
+                Scope(vec![Text(" ".to_owned()), Variable("name".to_owned())])]));
 
     parse_test!(parse_func_rec_params,
                 "$i($f())",
                 Function("i".to_owned(),
-                         vec![Scope(vec![Function("f".to_owned(), vec![])])]));
+                vec![Scope(vec![Function("f".to_owned(), vec![])])]));
 
     // Multi token tests
     parse_test!(parse_text_and_variable,
@@ -268,7 +260,6 @@ mod tests {
     parse_fail_test!(parse_fail_miss_matched_variable,
                      "%hello",
                      ParseError::VariableMissingClosing);
-    parse_fail_test!(parse_fail_unknown_escape, "\\?", ParseError::UnknownEscape(_));
 
     parse_fail_test!(parse_fail_end_with_escape,
                      "\\",
@@ -284,8 +275,6 @@ mod tests {
     parse_fail_test!(parse_fail_miss_matched_variable_in_func,
                      "$test(%hello)",
                      ParseError::VariableMissingClosing);
-    parse_fail_test!(parse_fail_unknown_escape_in_func,
-                     "$test(\\?)", ParseError::UnknownEscape(_));
 
     parse_fail_test!(parse_fail_func_no_para_in_func,
                      "$test($func)",
