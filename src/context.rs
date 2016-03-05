@@ -37,60 +37,67 @@ impl Query {
     /// Evaluate the query with a queryable object to be based off and a
     /// context
     pub fn eval(&self, queryable: &Queryable, context: &Context) -> EvalResult<String> {
-        match eval_token(&self.tokens, queryable, context) {
+        match self.tokens.eval(queryable, context) {
             Ok(res) => Ok(res.text),
             Err(err) => return Err(err),
         }
     }
 }
 
-fn eval_token(token: &Token, queryable: &Queryable, context: &Context) -> EvalResult<QueryReturn> {
-    match token {
-        &Token::Scope(ref tokens) => {
-            let mut result = false;
-            let mut text = String::new();
-            for token in tokens {
-                match eval_token(token, queryable, context) {
-                    Ok(res) => {
-                        // TODO: should result of scope be an AND or OR of all results
-                        result = result || res.condition.unwrap_or(false);
-                        text.push_str(&res.text);
+impl Token {
+
+    /// Evaluate a token
+    pub fn eval(&self,
+                  queryable: &Queryable,
+                  context: &Context)
+                  -> EvalResult<QueryReturn> {
+        match self {
+            &Token::Scope(ref tokens) => {
+                let mut result = false;
+                let mut text = String::new();
+                for token in tokens {
+                    match token.eval(queryable, context) {
+                        Ok(res) => {
+                            // TODO: should result of scope be an AND or OR of all results
+                            result = result || res.condition.unwrap_or(false);
+                            text.push_str(&res.text);
+                        }
+                        Err(e) => return Err(e),
                     }
-                    Err(e) => return Err(e),
+                }
+                Ok(QueryReturn {
+                    text: text,
+                    condition: Some(result),
+                })
+            }
+            &Token::Text(ref t) => {
+                Ok(QueryReturn {
+                    text: t.to_owned(),
+                    condition: None,
+                })
+            }
+            &Token::Variable(ref v) => {
+                match queryable.query(v) {
+                    Some(r) => {
+                        Ok(QueryReturn {
+                            text: r,
+                            condition: Some(true),
+                        })
+                    }
+                    None => {
+                        Ok(QueryReturn {
+                            text: String::new(),
+                            condition: Some(false),
+                        })
+                    }
                 }
             }
-            Ok(QueryReturn {
-                text: text,
-                condition: Some(result),
-            })
-        }
-        &Token::Text(ref t) => {
-            Ok(QueryReturn {
-                text: t.to_owned(),
-                condition: None,
-            })
-        }
-        &Token::Variable(ref v) => {
-            match queryable.query(v) {
-                Some(r) => {
-                    Ok(QueryReturn {
-                        text: r,
-                        condition: Some(true),
-                    })
-                }
-                None => {
-                    Ok(QueryReturn {
-                        text: String::new(),
-                        condition: Some(false),
-                    })
-                }
-            }
-        }
-        &Token::Function(ref f, ref arg) => {
-            match context.get_func(f) {
-                Some(func) => func(arg),
-                None => {
-                    return Err(EvalError::FunctionNotFound(f.to_owned()));
+            &Token::Function(ref f, ref arg) => {
+                match context.get_func(f) {
+                    Some(func) => func(arg),
+                    None => {
+                        return Err(EvalError::FunctionNotFound(f.to_owned()));
+                    }
                 }
             }
         }

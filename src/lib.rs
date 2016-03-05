@@ -7,6 +7,7 @@ pub use context::QueryReturn;
 pub use context::{EvalResult, EvalError, EvalFunc};
 
 
+/// A parsed query ready for use with a `Context` and `Queryable`
 #[derive(Debug)]
 pub struct Query {
 
@@ -14,15 +15,20 @@ pub struct Query {
     tokens: Token,
 }
 
+/// AST tokens for the query string
 #[derive(Debug, PartialEq, Eq)]
-enum Token {
+pub enum Token {
     /// Plain text with resolved escapes
     Text(String),
 
-    /// A named variable with: name
+    /// A named variable
+    ///
+    /// Parameters: Name
     Variable(String),
 
-    /// A named function with: Name, Expressions
+    /// A named function that has arguments 
+    ///
+    /// Parameters: Name, Arguments
     Function(String, Vec<Token>),
 
     /// A level of scope
