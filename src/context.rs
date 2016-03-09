@@ -45,12 +45,8 @@ impl Query {
 }
 
 impl Token {
-
     /// Evaluate a token
-    pub fn eval(&self,
-                  queryable: &Queryable,
-                  context: &Context)
-                  -> EvalResult<QueryReturn> {
+    pub fn eval(&self, queryable: &Queryable, context: &Context) -> EvalResult<QueryReturn> {
         match *self {
             Token::Scope(ref tokens) => {
                 let mut result = false;
@@ -95,9 +91,7 @@ impl Token {
             Token::Function(ref f, ref arg) => {
                 match context.get_func(f) {
                     Some(func) => func(arg),
-                    None => {
-                        return Err(EvalError::FunctionNotFound(f.to_owned()));
-                    }
+                    None => Err(EvalError::FunctionNotFound(f.to_owned())),
                 }
             }
         }
