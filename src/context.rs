@@ -39,7 +39,7 @@ impl Query {
     pub fn eval(&self, queryable: &Queryable, context: &Context) -> EvalResult<String> {
         match self.tokens.eval(queryable, context) {
             Ok(res) => Ok(res.text),
-            Err(err) => return Err(err),
+            Err(err) => Err(err),
         }
     }
 }
@@ -51,8 +51,8 @@ impl Token {
                   queryable: &Queryable,
                   context: &Context)
                   -> EvalResult<QueryReturn> {
-        match self {
-            &Token::Scope(ref tokens) => {
+        match *self {
+            Token::Scope(ref tokens) => {
                 let mut result = false;
                 let mut text = String::new();
                 for token in tokens {
@@ -70,13 +70,13 @@ impl Token {
                     condition: Some(result),
                 })
             }
-            &Token::Text(ref t) => {
+            Token::Text(ref t) => {
                 Ok(QueryReturn {
                     text: t.to_owned(),
                     condition: None,
                 })
             }
-            &Token::Variable(ref v) => {
+            Token::Variable(ref v) => {
                 match queryable.query(v) {
                     Some(r) => {
                         Ok(QueryReturn {
@@ -92,7 +92,7 @@ impl Token {
                     }
                 }
             }
-            &Token::Function(ref f, ref arg) => {
+            Token::Function(ref f, ref arg) => {
                 match context.get_func(f) {
                     Some(func) => func(arg),
                     None => {

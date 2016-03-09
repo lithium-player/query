@@ -42,7 +42,7 @@ impl Query {
         let mut iter = src.chars();
         match parse_scope(&mut iter) {
             Ok(t) => Ok(Query { tokens: t }),
-            Err(e) => return Err(e),
+            Err(e) => Err(e),
         }
     }
 }
@@ -129,7 +129,7 @@ fn parse_variable(iter: &mut Chars) -> ParseResult<Token> {
     let _ = iter.next(); // ignore TOKEN_VAR_START
 
     let mut name = String::new();
-    while let Some(c) = iter.next() {
+    for c in iter {
         match c {
             TOKEN_VAR_END => return Ok(Token::Variable(name)),
             _ => name.push(c),
