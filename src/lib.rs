@@ -26,7 +26,7 @@ pub enum Token {
     /// Parameters: Name
     Variable(String),
 
-    /// A named function that has arguments 
+    /// A named function that has arguments
     ///
     /// Parameters: Name, Arguments
     Function(String, Vec<Token>),

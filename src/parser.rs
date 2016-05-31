@@ -24,7 +24,7 @@ pub enum ParseError {
     /// Escape squence at end of query
     EscapeAtEndOfQuery,
 
-    /// Variable is missing closing character 
+    /// Variable is missing closing character
     VariableMissingClosing,
 
     /// Function is missing start of parameters
@@ -40,14 +40,14 @@ pub enum ParseError {
 impl Query {
     pub fn parse(src: String) -> ParseResult<Query> {
         let mut iter = src.chars();
-        match parse_scope(&mut iter) {
+        match parse_scope(&mut iter, true) {
             Ok(t) => Ok(Query { tokens: t }),
             Err(e) => Err(e),
         }
     }
 }
 
-fn parse_scope(iter: &mut Chars) -> ParseResult<Token> {
+fn parse_scope(iter: &mut Chars, top_level: bool) -> ParseResult<Token> {
     let mut tokens = Vec::new();
     loop {
         let token = match iter.clone().peekable().peek() {
@@ -55,14 +55,15 @@ fn parse_scope(iter: &mut Chars) -> ParseResult<Token> {
                 match *c {
                     TOKEN_VAR_START => parse_variable(iter),
                     TOKEN_FUNC_NAME_START => parse_function(iter),
-                    TOKEN_FUNC_PARAM_END | TOKEN_FUNC_PARAM_SEP => break,
-                    _ => parse_text(iter),
+                    TOKEN_FUNC_PARAM_END |
+                    TOKEN_FUNC_PARAM_SEP => break,
+                    _ => parse_text(iter, top_level),
                 }
             }
             None => Err(ParseError::EndOfQuery),
         };
 
-        tokens.push(match token { 
+        tokens.push(match token {
             Ok(t) => t,
             Err(e) => {
                 match e {
@@ -75,7 +76,7 @@ fn parse_scope(iter: &mut Chars) -> ParseResult<Token> {
     Ok(Token::Scope(tokens))
 }
 
-fn parse_text(iter: &mut Chars) -> ParseResult<Token> {
+fn parse_text(iter: &mut Chars, top_level: bool) -> ParseResult<Token> {
     let mut text = String::new();
 
     loop {
@@ -84,9 +85,12 @@ fn parse_text(iter: &mut Chars) -> ParseResult<Token> {
             match *peek {
                 TOKEN_VAR_START => break,
                 TOKEN_FUNC_PARAM_SEP => break,
-                TOKEN_FUNC_NAME_START => break, 
-                TOKEN_FUNC_PARAM_START => break, 
-                TOKEN_FUNC_PARAM_END => break,
+                TOKEN_FUNC_NAME_START => break,
+                TOKEN_FUNC_PARAM_END => {
+                    if !top_level {
+                        break;
+                    }
+                }
                 _ => (),
             }
         }
@@ -167,14 +171,13 @@ fn parse_function(iter: &mut Chars) -> ParseResult<Token> {
                 continue;
             }
             _ => {
-                args.push(match parse_scope(iter) {
+                args.push(match parse_scope(iter, false) {
                     Ok(t) => t,
                     Err(e) => return Err(e),
                 })
             }
         }
     }
-
     Err(ParseError::FuncParameterNotClosed)
 }
 
@@ -255,6 +258,18 @@ mod tests {
     parse_test!(parse_text_and_variable,
                 "Hello %name%",
                 Text("Hello ".to_owned()),
+                Variable("name".to_owned()));
+
+    // TODO: Should this case be an errors?
+    parse_test!(parse_text_and_variable_start_with_open_bracket,
+                "Hello (%name%",
+                Text("Hello (".to_owned()),
+                Variable("name".to_owned()));
+
+    // TODO: Should this case be an errors?
+    parse_test!(parse_text_and_variable_start_with_close_bracket,
+                "Hello )%name%",
+                Text("Hello )".to_owned()),
                 Variable("name".to_owned()));
 
     parse_test!(parse_text_var_func,

@@ -145,9 +145,9 @@ mod tests {
         let func = HashMap::<String, Box<EvalFunc>>::new();
 
         let result = Query::parse("Hello %name%!".to_owned())
-                         .unwrap()
-                         .eval(&map, &func)
-                         .unwrap();
+            .unwrap()
+            .eval(&map, &func)
+            .unwrap();
 
         assert_eq!("Hello Dave!".to_owned(), result);
     }
@@ -160,9 +160,9 @@ mod tests {
         let func = HashMap::<String, Box<EvalFunc>>::new();
 
         let result = Query::parse("Hello %name%!".to_owned())
-                         .unwrap()
-                         .eval(&map, &func)
-                         .unwrap();
+            .unwrap()
+            .eval(&map, &func)
+            .unwrap();
 
         assert_eq!("Hello !".to_owned(), result);
     }
@@ -182,9 +182,9 @@ mod tests {
                     }));
 
         let result = Query::parse("Hello $hi()".to_owned())
-                         .unwrap()
-                         .eval(&map, &func)
-                         .unwrap();
+            .unwrap()
+            .eval(&map, &func)
+            .unwrap();
 
         assert_eq!("Hello hi!".to_owned(), result);
     }
@@ -197,8 +197,8 @@ mod tests {
         let func = HashMap::<String, Box<EvalFunc>>::new();
 
         match Query::parse("Hello $hi()".to_owned())
-                  .unwrap()
-                  .eval(&map, &func) {
+            .unwrap()
+            .eval(&map, &func) {
             Ok(_) => unreachable!(),
             Err(e) => {
                 match e {
