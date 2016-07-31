@@ -1,6 +1,7 @@
 use Query;
 use Token;
 use std::str::Chars;
+use std::str::FromStr;
 
 // consts for character representing tokens
 const TOKEN_VAR_START: char = '%';
@@ -44,6 +45,14 @@ impl Query {
             Ok(t) => Ok(Query { tokens: t }),
             Err(e) => Err(e),
         }
+    }
+}
+
+impl FromStr for Query {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Query::parse(s.to_owned())
     }
 }
 
