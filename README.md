@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/lithium-player/query.svg?branch=master)](https://travis-ci.org/lithium-player/query)
 [![Coverage Status](https://coveralls.io/repos/github/lithium-player/query/badge.svg?branch=master)](https://coveralls.io/github/lithium-player/query?branch=master)
-[![Clippy Linting Result](http://clippy.bashy.io/github/lithium-player/query/master/badge.svg)](http://clippy.bashy.io/github/lithium-player/query/master/log)
+[![Clippy Linting Result](https://clippy.bashy.io/github/lithium-player/query/master/badge.svg)](https://clippy.bashy.io/github/lithium-player/query/master/log)
 
 A rust library for parsing & executing foobar2000-like formatting syntax.
 
